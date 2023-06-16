@@ -6,7 +6,13 @@ import numpy as np
 import os
 import pandas as pd
 
-import skimage.io as io
+from sklearn import svm
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.decomposition import PCA
+
+import matplotlib.pyplot as plt
 
 def crop_image(source, target_dir, target_name, sample_size):
     im = Image.open(source)
@@ -82,4 +88,48 @@ def analyze_all_images():
 # crop_image('Tkanina/Oryginal/tkanina.jpg', 'Tkanina/', 'tkanina', 256)
 # crop_image('Tynk/Oryginal/tynk.jpg', 'Tynk/', 'tynk', 256)
 
-analyze_all_images()
+#Analiza fragmentów
+# analyze_all_images()
+
+features = pd.read_csv('textures_data.csv', sep=' ', )
+
+data = np.array(features)
+X = data[:,:-1].astype('float64') # wydobycie wartości cech jako floaty
+Y = data[:,-1]    # wydobycie nazw kategorii
+
+
+# ======== Wizualizacja rozróżnialności cech poszczególnych próbek ========
+x_transform = PCA(n_components=3)
+Xt = x_transform.fit_transform(X)
+
+blue = Y == 'Gres'
+cyan = Y == 'Laminat'
+red = Y == 'Tkanina'
+magenta = Y == 'Tynk'
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(Xt[blue, 0], Xt[blue, 1], Xt[blue, 2], c='b')
+ax.scatter(Xt[cyan, 0], Xt[cyan, 1], Xt[cyan, 2], c='c')
+ax.scatter(Xt[red, 0], Xt[red, 1], Xt[red, 2], c='r')
+ax.scatter(Xt[magenta, 0], Xt[magenta, 1], Xt[magenta, 2], c='m')
+
+plt.show()
+
+# ============================ Klasyfikacja ===============================
+
+classifier = svm.SVC(gamma='auto') # parametr gamma steruje nieliniowością granicy
+
+x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.33) # x_ to cechy, y_ to kategorie
+
+classifier.fit(x_train, y_train) # budowanie granicy decyzyjnej (trenowanie klasyfikatora)
+y_pred = classifier.predict(x_test) # predykcja zbioru testowego
+acc = accuracy_score(y_test, y_pred) # ocena predykcji
+print(acc)
+
+cm = confusion_matrix(y_test, y_pred, normalize='true') # wynik względny od 0 do 1 (bo normalize=True)
+print(cm) # Macierz pomyłek w terminalu (względna)
+
+disp = ConfusionMatrixDisplay.from_predictions(y_test, y_pred)
+plt.show() # Macierz pomyłek w formie  graficznej (bezwzględna)
